@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-
+from macro.pmi_fetcher import get_ism_pmi
 # Load data
 df = pd.read_csv('bkx_data.csv', parse_dates=['Date'])
 df['Date'] = pd.to_datetime(df['Date'])
