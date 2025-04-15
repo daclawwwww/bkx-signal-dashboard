@@ -1,55 +1,65 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-from macro.pmi_fetcher import get_ism_pmi
+
 # Load data
 df = pd.read_csv('bkx_data.csv', parse_dates=['Date'])
 df['Date'] = pd.to_datetime(df['Date'])
 
-# Dashboard Title
-st.title("BKX Buy Signal Dashboard (Upgraded)")
-st.markdown("This model uses macroeconomic indicators and valuation filters to generate forward-looking buy signals for the BKX index.")
+# Title
+st.title("BKX Buy & Exit Signal Dashboard")
+st.markdown("An early signal system using consumer confidence, macro momentum, and valuation filters to flag BKX entries and exits.")
 
-# Signal Overview
+# Latest Signal Status
 latest = df.iloc[-1]
-st.subheader("Latest Signal Status")
+st.subheader("Current Signal Status")
 if latest['Signal_Score'] >= 2:
-    st.success(f"**Buy Signal: {latest['Signal_Strength']}** as of {latest['Date'].strftime('%b %Y')}")
+    st.success(f"**Buy Signal: {latest['Signal_Strength']}** — {latest['Date'].strftime('%b %Y')}")
 else:
     st.info("No active buy signal this month.")
 
+if latest['Exit_Signal'] == 1:
+    st.warning(f"**Exit Signal Active** — {latest['Date'].strftime('%b %Y')}")
+
+# Metrics Overview
 st.markdown(f"""
 - **Signal Score:** {latest['Signal_Score']}
-- **CCI:** {latest['CCI']} ({latest['CCI_Change_1M']} MoM)
+- **CCI:** {latest['CCI']} (Δ {latest['CCI_Change_1M']})
 - **PMI:** {latest['PMI']}
-- **Jobless Claims YoY Change:** {latest['Claims_YoY']}%
+- **Claims YoY %:** {latest['Claims_YoY']}%
 - **BKX P/E:** {latest['BKX_PE']} | **P/B:** {latest['BKX_PB']}
-- **Yield Curve (10Y-2Y):** {latest['Yield_Curve']}
+- **Yield Curve:** {latest['Yield_Curve']}
 """)
 
-# Buy Signal History
-st.subheader("Historical Buy Signals")
-signal_df = df[df['Signal_Score'] >= 2][['Date', 'CCI', 'PMI', 'BKX_PE', 'BKX_3M_Return', 'Signal_Strength']]
-st.dataframe(signal_df)
-
-# Line chart with markers
-st.subheader("BKX Price with Signal Markers")
+# Buy/Exit Signal Chart
+st.subheader("BKX Price with Entry/Exit Markers")
 fig, ax = plt.subplots(figsize=(10, 4))
 ax.plot(df['Date'], df['BKX_Price'], label='BKX Price', linewidth=2)
 ax.scatter(df[df['Signal_Score'] >= 2]['Date'], df[df['Signal_Score'] >= 2]['BKX_Price'], color='green', label='Buy Signal', zorder=5)
+ax.scatter(df[df['Exit_Signal'] == 1]['Date'], df[df['Exit_Signal'] == 1]['BKX_Price'], color='red', label='Exit Signal', zorder=5)
 ax.set_ylabel("BKX Price")
+ax.set_xlabel("Date")
 ax.legend()
 ax.grid(True)
 st.pyplot(fig)
 
-# Rolling Stats
-st.subheader("Signal Performance Summary")
-avg_return = signal_df['BKX_3M_Return'].mean()
-hit_rate = (signal_df['BKX_3M_Return'] > 0).mean() * 100
-st.markdown(f"""
-- **Avg 3-Month Return After Signal:** {avg_return:.1f}%
-- **Hit Rate (positive return):** {hit_rate:.1f}%
-- **# of Signals:** {len(signal_df)}
-""")
+# Trade History
+st.subheader("Completed Trades")
+trade_df = df.dropna(subset=['Entry_Date', 'Exit_Date'])
+st.dataframe(trade_df[['Entry_Date', 'Exit_Date', 'Entry_Price', 'Exit_Price', 'Trade_Return']])
 
-st.caption("Signal score combines consumer confidence, macro momentum, valuation, and yield curve conditions.")
+# Trade Stats
+st.subheader("Performance Summary")
+if len(trade_df) > 0:
+    avg_ret = trade_df['Trade_Return'].mean()
+    win_rate = (trade_df['Trade_Return'] > 0).mean() * 100
+    max_dd = trade_df['Trade_Return'].min()
+    st.markdown(f"""
+    - **Average Trade Return:** {avg_ret:.2f}%
+    - **Win Rate:** {win_rate:.1f}%
+    - **Max Drawdown (per trade):** {max_dd:.2f}%
+    """)
+else:
+    st.info("No trades completed yet.")
+
+st.caption("Signal Score >= 2 triggers an entry. Exit occurs when score drops <2 or CCI enters upper quartile and reverses.")
