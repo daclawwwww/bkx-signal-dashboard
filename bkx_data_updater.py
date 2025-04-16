@@ -3,7 +3,8 @@ import yfinance as yf
 from fredapi import Fred
 
 # === YOUR FRED API KEY HERE ===
-FRED_API_KEY = 'YOUR_FRED_API_KEY'
+import os
+FRED_API_KEY = os.getenv("FRED_API_KEY")
 fred = Fred(api_key=FRED_API_KEY)
 
 # === Date Range ===
