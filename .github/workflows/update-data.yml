@@ -1,0 +1,26 @@
+name: Update BKX Data Monthly
+
+on:
+  schedule:
+    - cron: '0 12 1 * *'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - run: pip install -r requirements.txt
+      - env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+        run: python bkx_data_updater.py
+      - run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add bkx_data.csv
+          git commit -m "Auto-update BKX data"
+          git push
