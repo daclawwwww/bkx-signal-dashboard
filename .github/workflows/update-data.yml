@@ -1,4 +1,4 @@
-name: Update BKX Data Monthly
+name: Update BKX Data Live
 
 on:
   schedule:
