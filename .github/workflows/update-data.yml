@@ -2,28 +2,37 @@ name: Update BKX Data Monthly
 
 on:
   schedule:
-    - cron: '0 12 1 * *'
-  workflow_dispatch:
+    - cron: '0 12 1 * *'  # Runs 1st of each month at 12:00 UTC
+  workflow_dispatch:       # Allows manual run
 
 permissions:
-  contents: write
+  contents: write          # Required to allow git push
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-      - run: pip install -r requirements.txt
-      - env:
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run data update script
+        env:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
         run: python bkx_data_updater.py
-      - run: |
+
+      - name: Commit and push updated bkx_data.csv
+        run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git add bkx_data.csv
-          git commit -m "Auto-update BKX data" || echo "No changes to commit"
+          git diff --cached --quiet || git commit -m "Auto-update BKX data"
           git push
