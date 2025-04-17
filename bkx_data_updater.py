@@ -2,8 +2,9 @@ import pandas as pd
 import yfinance as yf
 from fredapi import Fred
 import os
+from datetime import datetime
 
-# === FRED API Key (from GitHub Secrets or environment) ===
+# === FRED API Key (from GitHub Secrets or env) ===
 FRED_API_KEY = os.getenv("FRED_API_KEY")
 fred = Fred(api_key=FRED_API_KEY)
 
@@ -21,11 +22,8 @@ df = kbe.join([cci, pmi, claims, curve], how='inner')
 
 # === Feature Engineering ===
 df['CCI_Change_1M'] = df['CCI'].diff()
-
-# Calculate YoY change in jobless claims
 df['Claims_YoY'] = df['Claims'].pct_change(periods=12) * 100
 
-# Forward returns
 df['BKX_1M_Return'] = df['BKX_Price'].pct_change(periods=1).shift(-1) * 100
 df['BKX_3M_Return'] = df['BKX_Price'].pct_change(periods=3).shift(-3) * 100
 df['BKX_6M_Return'] = df['BKX_Price'].pct_change(periods=6).shift(-6) * 100
@@ -59,8 +57,13 @@ df['Entry_Price'] = ""
 df['Exit_Price'] = ""
 df['Trade_Return'] = ""
 
-# === Final Cleanup and Save ===
-df.dropna(inplace=True)
+# === Drop Future Rows (avoid NaNs from unfinished months) ===
+today = datetime.today()
+first_of_this_month = pd.to_datetime(today.strftime('%Y-%m-01'))
+df = df[df.index < first_of_this_month]
+
+# === Save ===
 df.index.name = 'Date'
 df.to_csv("bkx_data.csv")
 print("Saved: bkx_data.csv")
+print("Most recent row:", df.tail(1))
