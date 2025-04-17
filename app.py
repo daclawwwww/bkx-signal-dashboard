@@ -1,68 +1,67 @@
-import streamlit as st
 import pandas as pd
+import streamlit as st
 import matplotlib.pyplot as plt
 
-# Load data
-df = pd.read_csv('bkx_data.csv', parse_dates=['Date'])
-df['Date'] = pd.to_datetime(df['Date'])
+# === Load Data ===
+df = pd.read_csv("bkx_data.csv", parse_dates=["Date"], index_col="Date")
 
-# Use the most recent row that has signal strength data
-latest = df[df['Signal_Strength'] != 'None'].iloc[-1]
+# === Signal Logic ===
+buy_signals = df[df["Entry_Signal"] == 1]
+sell_signals = df[df["Exit_Signal"] == 1]
 
-# Title
-st.title("BKX Buy & Exit Signal Dashboard")
-st.markdown("Live macro and valuation-driven signals for bank stocks using monthly indicators and forward returns.")
+# === Trade Pairing ===
+trades = []
+in_trade = False
+entry_date = None
+entry_price = None
 
-# Current Signal Display
-st.subheader("Current Signal Status")
-if latest['Signal_Score'] >= 2:
-    st.success(f"**Buy Signal: {latest['Signal_Strength']}** — {latest['Date'].strftime('%b %Y')}")
-else:
-    st.info("No active buy signal this month.")
+for date, row in df.iterrows():
+    if not in_trade and row["Entry_Signal"] == 1:
+        in_trade = True
+        entry_date = date
+        entry_price = row["BKX_Price"]
+    elif in_trade and row["Exit_Signal"] == 1:
+        exit_date = date
+        exit_price = row["BKX_Price"]
+        trades.append({
+            "Entry_Date": entry_date,
+            "Exit_Date": exit_date,
+            "Entry_Price": entry_price,
+            "Exit_Price": exit_price,
+            "Trade_Return": round((exit_price - entry_price) / entry_price * 100, 2)
+        })
+        in_trade = False
 
-if latest['Exit_Signal'] == 1:
-    st.warning(f"**Exit Signal Active** — {latest['Date'].strftime('%b %Y')}")
+trades_df = pd.DataFrame(trades)
 
-# Macro & Valuation Display
-st.markdown(f"""
-- **Signal Score:** {latest['Signal_Score']}
-- **CCI:** {latest['CCI']} (Δ {latest['CCI_Change_1M']})
-- **PMI:** {latest['PMI']}
-- **Claims YoY %:** {latest['Claims_YoY']}%
-- **BKX P/E:** {latest.get('BKX_PE', '—')} | **P/B:** {latest.get('BKX_PB', '—')}
-- **Yield Curve:** {latest['Yield_Curve']}
-""")
+# === Summary Stats ===
+avg_return = trades_df["Trade_Return"].mean() if not trades_df.empty else 0
+win_rate = (trades_df["Trade_Return"] > 0).mean() * 100 if not trades_df.empty else 0
+max_drawdown = ((df["BKX_Price"].cummax() - df["BKX_Price"]) / df["BKX_Price"].cummax()).max() * -100
 
-# Chart
-st.subheader("BKX Price with Entry/Exit Markers")
-fig, ax = plt.subplots(figsize=(10, 4))
-ax.plot(df['Date'], df['BKX_Price'], label='BKX Price', linewidth=2)
-ax.scatter(df[df['Signal_Score'] >= 2]['Date'], df[df['Signal_Score'] >= 2]['BKX_Price'], color='green', label='Buy Signal', zorder=5)
-ax.scatter(df[df['Exit_Signal'] == 1]['Date'], df[df['Exit_Signal'] == 1]['BKX_Price'], color='red', label='Exit Signal', zorder=5)
+# === UI ===
+st.title("BKX Price with Entry/Exit Markers")
+st.line_chart(df["BKX_Price"])
+
+fig, ax = plt.subplots()
+ax.plot(df.index, df["BKX_Price"], label="BKX Price")
+ax.scatter(buy_signals.index, buy_signals["BKX_Price"], color="green", label="Buy Signal")
+ax.scatter(sell_signals.index, sell_signals["BKX_Price"], color="red", label="Exit Signal")
 ax.set_ylabel("BKX Price")
 ax.set_xlabel("Date")
 ax.legend()
-ax.grid(True)
 st.pyplot(fig)
 
-# Trade History Table
+# === Trade History Table ===
 st.subheader("Trade History")
-df['Trade_Status'] = df.apply(lambda row: "Open" if pd.isna(row['Exit_Date']) else "Closed", axis=1)
-trade_df = df[df['Entry_Date'].notna()][['Entry_Date', 'Exit_Date', 'Entry_Price', 'Exit_Price', 'Trade_Return', 'Trade_Status']]
-st.dataframe(trade_df)
+st.dataframe(trades_df)
 
-# Trade Summary
+# === Performance Summary ===
 st.subheader("Performance Summary")
-closed = trade_df[trade_df['Trade_Status'] == 'Closed']
-if not closed.empty:
-    avg_ret = closed['Trade_Return'].mean()
-    win_rate = (closed['Trade_Return'] > 0).mean() * 100
-    max_dd = closed['Trade_Return'].min()
-    st.markdown(f"""
-    - **Average Return:** {avg_ret:.2f}%
-    - **Win Rate:** {win_rate:.1f}%
-    - **Max Drawdown:** {max_dd:.2f}%
-    """)
+if not trades_df.empty:
+    st.markdown(f"- **Average Return:** {avg_return:.2f}%")
+    st.markdown(f"- **Win Rate:** {win_rate:.1f}%")
+    st.markdown(f"- **Max Drawdown:** {max_drawdown:.2f}%")
 else:
     st.info("No closed trades yet.")
 
