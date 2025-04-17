@@ -8,20 +8,19 @@ from datetime import datetime
 FRED_API_KEY = os.getenv("FRED_API_KEY")
 fred = Fred(api_key=FRED_API_KEY)
 
-# === Pull KBE Price Data (with safety check) ===
+# === Pull KBE Price Data (flatten columns) ===
 kbe_raw = yf.download("KBE", start="2000-01-01", interval="1mo", auto_adjust=True)
 
 if 'Close' not in kbe_raw.columns:
     raise ValueError("Failed to fetch 'Close' prices for KBE — check yfinance or symbol availability.")
 
-kbe = kbe_raw[['Close']].rename(columns={"Close": "BKX_Price"})
+kbe = kbe_raw[['Close']]
+kbe.columns = ['BKX_Price']
 
 # === Pull Macro Data ===
 cci = fred.get_series('UMCSENT').rename("CCI").resample('MS').last()
 claims = fred.get_series('IC4WSA').rename("Claims").resample('MS').mean()
 curve = fred.get_series('T10Y2Y').rename("Yield_Curve").resample('MS').last()
-
-# PMI proxy
 pmi_proxy = fred.get_series('CUSR0000SAD').rename("PMI").resample('MS').last()
 
 # === Combine All Data ===
