@@ -24,10 +24,10 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r requirements.txt
 
-      - name: Run data update script
-        env:
-          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
-        run: python bkx_data_updater.py
+      - - name: Run data update script
+  env:
+    FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+  run: python bkx_update_live.py
 
       - name: Commit and push updated bkx_data.csv
         run: |
