@@ -67,3 +67,4 @@ df.index.name = 'Date'
 df.to_csv("bkx_data.csv")
 print("Saved: bkx_data.csv")
 print("Most recent row:", df.tail(1))
+# Force rebuild
