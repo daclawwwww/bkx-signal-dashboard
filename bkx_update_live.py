@@ -12,7 +12,7 @@ kbe_raw = yf.download("KBE", start="2000-01-01", interval="1mo", auto_adjust=Tru
 kbe = kbe_raw[['Close']].rename(columns={"Close": "BKX_Price"})
 
 cci = fred.get_series('UMCSENT').rename("CCI").resample('M').last()
-pmi = fred.get_series('NAPMPMI').rename("PMI").resample('M').last()
+pmi = fred.get_series('CUSR0000SAD').rename("PMI").resample('M').last()
 claims = fred.get_series('IC4WSA').rename("Claims").resample('M').mean()
 curve = fred.get_series('T10Y2Y').rename("Yield_Curve").resample('M').last()
 
