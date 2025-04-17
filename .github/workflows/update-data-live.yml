@@ -1,12 +1,10 @@
 name: Update BKX Data Live
 
 on:
-  schedule:
-    - cron: '0 12 1 * *'  # Runs 1st of each month at 12:00 UTC
-  workflow_dispatch:       # Allows manual run
+  workflow_dispatch:         # Allows manual run from the Actions tab
 
 permissions:
-  contents: write          # Required to allow git push
+  contents: write            # Allows GitHub Actions to commit changes back to the repo
 
 jobs:
   build:
@@ -24,10 +22,10 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r requirements.txt
 
-      - - name: Run data update script
-  env:
-    FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
-  run: python bkx_update_live.py
+      - name: Run data update script
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+        run: python bkx_update_live.py
 
       - name: Commit and push updated bkx_data.csv
         run: |
