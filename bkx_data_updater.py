@@ -4,26 +4,26 @@ from fredapi import Fred
 import os
 from datetime import datetime
 
-# === FRED API Key (from GitHub Secrets or env) ===
+# === FRED API Key ===
 FRED_API_KEY = os.getenv("FRED_API_KEY")
 fred = Fred(api_key=FRED_API_KEY)
 
-# === Pull KBE Price Data ===
-kbe = yf.download("KBE", start="2000-01-01", interval="1mo")['Adj Close'].rename("BKX_Price").to_frame()
+# === Pull KBE Price Data (auto-adjusted to avoid 'Adj Close' errors) ===
+kbe_raw = yf.download("KBE", start="2000-01-01", interval="1mo", auto_adjust=True)
+kbe = kbe_raw[['Close']].rename(columns={"Close": "BKX_Price"})
 
-# === Pull FRED Macro Data ===
+# === Pull Macro Data from FRED ===
 cci = fred.get_series('CONCCON').rename("CCI").resample('M').last()
 pmi = fred.get_series('NAPM').rename("PMI").resample('M').last()
 claims = fred.get_series('IC4WSA').rename("Claims").resample('M').mean()
 curve = fred.get_series('T10Y2Y').rename("Yield_Curve").resample('M').last()
 
-# === Combine All Data ===
+# === Merge Data ===
 df = kbe.join([cci, pmi, claims, curve], how='inner')
 
 # === Feature Engineering ===
 df['CCI_Change_1M'] = df['CCI'].diff()
 df['Claims_YoY'] = df['Claims'].pct_change(periods=12) * 100
-
 df['BKX_1M_Return'] = df['BKX_Price'].pct_change(periods=1).shift(-1) * 100
 df['BKX_3M_Return'] = df['BKX_Price'].pct_change(periods=3).shift(-3) * 100
 df['BKX_6M_Return'] = df['BKX_Price'].pct_change(periods=6).shift(-6) * 100
@@ -49,7 +49,7 @@ def strength(score):
 
 df['Signal_Strength'] = df['Signal_Score'].apply(strength)
 
-# === Placeholder Trade Fields ===
+# === Placeholder Trade Columns ===
 df['Exit_Signal'] = 0
 df['Entry_Date'] = ""
 df['Exit_Date'] = ""
@@ -57,12 +57,12 @@ df['Entry_Price'] = ""
 df['Exit_Price'] = ""
 df['Trade_Return'] = ""
 
-# === Drop Future Rows (avoid NaNs from unfinished months) ===
+# === Remove Future Rows (e.g., April 30 when it’s not complete) ===
 today = datetime.today()
 first_of_this_month = pd.to_datetime(today.strftime('%Y-%m-01'))
 df = df[df.index < first_of_this_month]
 
-# === Save ===
+# === Save Output ===
 df.index.name = 'Date'
 df.to_csv("bkx_data.csv")
 print("Saved: bkx_data.csv")
