@@ -31,6 +31,7 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
+          git pull origin main --rebase
           git add -A
-          git commit -m "Auto-update BKX data" || echo "No changes to commit"
+          git commit -m "Auto-update BKX data" || echo "Nothing to commit"
           git push origin HEAD:main
